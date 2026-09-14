@@ -1,0 +1,122 @@
+---
+title: "OLAH DATA"
+author: "Amelinda Siwi Rahmawati"
+date: "2023-03-01"
+output: word_document
+---
+
+```Grafik Return
+```{r}
+library(readxl)
+GOOG <- read_excel("GOOG.xlsx")
+View(GOOG)
+
+return <- GOOG$Return
+
+plot(return, type="l", col="DARK GREEN", main="Grafik Return Saham GOOG", xlab="Date", ylab="Return")
+```
+
+```Uji Normalitas
+``Dugaan dengan histogram
+```{r}
+par(mfrow=c(1,1))
+hist(return, probability = TRUE, main = "Histogram Return Saham GOOG")
+lines(density(return), col = "red")
+```
+``Dugaaan dengan Q-Q plot
+```{r}
+par(mfrow=c(1,1))
+qqnorm(return, main = "Q-Q Plot Return Saham GOOG")
+qqline(return)
+```
+``Uji KS
+```{r}
+library(nortest)
+lillie.test(return)
+```
+
+```Metode BS
+``PACKAGE
+```{r}
+library(OptionPricing)
+BS_EC(T = 1, K = 140, r = 0.0025, sigma = 0.387443624 , S0 = 145)
+BS_EP(T = 1, K = 150, r = 0.0025, sigma = 0.387443624 , S0 = 145)
+```
+``TANPA PACKAGE
+```{r}
+black_scholes<- function(S0, K, T, r, sigma, type){
+  d1 <- (log(S0/K)+(r+sigma^2/2)*T)/(sigma*sqrt(T))
+  d2 <- d1-sigma*sqrt(T)
+  c <- S0*pnorm(d1)-K*exp(-r*T)*pnorm(d2)
+  p <- K*exp(-r*T)*pnorm(-d2)-S0*pnorm(-d1)
+  if(type == "call")
+    return(c)
+  else if (type == "put")
+    return(p)
+}
+
+call_option <- black_scholes(145, 140, 1, 0.0025, 0.387443624, "call"); call_option
+put_option <- black_scholes(145, 150, 1, 0.0025, 0.387443624, "put"); put_option
+```
+
+```Metode Implisit
+```{r}
+fdm <- function(S0, K, M, N, T, r, v, type){
+  Smax = 300
+  deltas = Smax/M
+  deltat = T/N
+  j = (0:M)
+  aj = 0.5*deltat*(r*j - v*v*j^2)
+  bj = 1 + deltat*v*v*j^2 + r*deltat
+  cj = -0.5*deltat*(r*j - v*v*j^2)
+  ajj = aj[3:M]
+  bjj = bj[2:M]
+  cjj = cj[2:(M-1)]
+  td = triDiag2S(bjj, cjj, ajj, r = M-1)
+  invtd = solve(td)
+  
+  vec_S = j[2:M]*deltas
+  position = match(S, vec_S)
+  
+  if (type == "call"){
+    vec_k = c()
+    for (i in 1:(M-2)){
+      vec_k = c(vec_k, 0)
+    }
+    vec_k = c(vec_k, -cj[M]*K)
+    mat_k = matrix(vec_k)
+    
+    fc = c()
+    for (i in 1:(M-1)){
+      xc = max((i*deltas)-K, 0)
+      fc = c(fc, xc)
+    }
+    for (i in 1:(N-waktu)){
+      fc1 = fc + mat_k
+      fc_2 = invtd %% fc1
+      fc = fc_2
+    }
+    return(fc[position])
+  } else{
+    vec_k = c(-aj[2]*K)
+    for (i in 1:(M-2)){
+      vec_k = c(vec_k, 0)
+    }
+    mat_k = matrix(vec_k)
+    fp = c()
+    for (i in 1:(M-1)){
+      xp = max(K - (i*deltas), 0)
+      fp = c(fp, xp)
+    }
+    for (i in 1:(N-waktu)){
+      fp1 = fp + mat_k
+      fp2 = invtd %% fp1
+      fp = fp2
+    }
+    return(fp[position])
+  }
+}
+
+fdm(145, 140, 600, 500, 1, 0.0025, 0.387443624, "call")
+```
+
